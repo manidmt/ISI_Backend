@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from models.company import Company, Session
+from models.bond import bonds_urls
 
 def scrape_or_get_company_info(symbol):
     session = Session()
@@ -158,3 +159,50 @@ def scrape_bond_info(url, country):
 
     except Exception as e:
         return {"error": f"Error extrayendo datos: {str(e)}"}
+
+
+def scrape_or_get_bond_info(url, country):
+    today = datetime.today().date()
+
+    # Scrapeamos para conocer el nombre exacto del bono
+    scraped_data = scrape_bond_info(url, country)
+    name = scraped_data.get("name")
+
+    if not name:
+        return {"error": "No se pudo extraer el nombre del bono"}
+
+    session = Session()
+    existing = session.query(Bond).filter_by(name=name, country=country).first()
+
+    # Si ya existe y está actualizado, lo devolvemos
+    if existing and existing.last_update and existing.last_update.date() == today:
+        session.close()
+        return {
+            "id": existing.id,
+            "country": existing.country,
+            "name": existing.name,
+            "yield_pct": existing.yield_pct,
+            "daily_change": existing.daily_change,
+            "daily_change_pct": existing.daily_change_pct,
+            "last_update": existing.last_update,
+            "currency": existing.currency
+        }
+
+    session.close()
+    # Si no existe o está desactualizado, devolvemos el scrapeo (que ya viene de bond_scraper.py y guarda en DB)
+    return scraped_data
+
+def get_bonds_info(country):
+    country = country.upper()
+    urls = bonds_urls.get(country)
+    if not urls:
+        return {"error": "País no soportado"}
+
+    bond_data = []
+    for url in urls:
+        data = scrape_or_get_bond_info(url, country)
+#        if "error" in data:
+#            return data
+        bond_data.append(data)
+
+    return bond_data
