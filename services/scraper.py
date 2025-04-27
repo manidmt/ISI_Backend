@@ -78,8 +78,12 @@ def scrape_or_get_company_info(symbol):
         return {"error": f"Error extrayendo datos: {str(e)}"}
 
 
-from models.bond import Bond, Session
+
+import requests
+from bs4 import BeautifulSoup
 from datetime import datetime
+from models.bond import Bond, Session, extract_bond_name_from_url
+import time
 
 def scrape_bond_info(url, country):
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -94,80 +98,96 @@ def scrape_bond_info(url, country):
         # Nombre del bono
         title_tag = soup.find('h1')
         name = title_tag.text.strip() if title_tag else "Nombre no encontrado"
+        print(f"Nombre del bono: {name}")
+        # Inicializar variables
+        currency = "Currency no encontrada"
+        prev_close = None
+        day_range = None
+        year_range = None
+        price = None
+        price_range = None
+        coupon = None
+        maturity_date = None
+        one_year_change = None
 
-        # Último valor (yield)
-        yield_tag = soup.find('span', class_='text-5xl/8 font-bold')
-        yield_pct = float(yield_tag.text.strip().replace('%', '')) if yield_tag else None
+        # Buscar los datos del bloque de "Key Info"
+        key_info = soup.find('div', attrs={"data-test": "key-info"})
+        if key_info:
+            rows = key_info.find_all('div', class_='flex flex-wrap items-center justify-between border-t border-t-[#e6e9eb] pt-2.5 sm:pb-2.5 pb-2.5')
+            for row in rows:
+                label_tag = row.find('dt')
+                value_tag = row.find('dd')
+                if not label_tag or not value_tag:
+                    continue
+                label = label_tag.text.strip()
+                value = value_tag.text.strip()
 
-        # Cambio absoluto y porcentaje
-        change_container = soup.find('div', class_='flex items-end gap-1')
-        if change_container:
-            spans = change_container.find_all('span')
-            if len(spans) >= 2:
-                daily_change = float(spans[0].text.strip().replace('+', '').replace(',', ''))
-                daily_change_pct = float(spans[1].text.strip().replace('(', '').replace(')', '').replace('%', '').replace('+', '').replace(',', ''))
-            else:
-                daily_change = None
-                daily_change_pct = None
-        else:
-            daily_change = None
-            daily_change_pct = None
+                if label == "Prev. Close":
+                    prev_close = float(value) if value else None
+                elif label == "Day's Range":
+                    day_range = value
+                elif label == "52 wk Range":
+                    year_range = value
+                elif label == "Price":
+                    price = float(value) if value and value != "-" else None
+                elif label == "Price Range":
+                    price_range = value
+                elif label == "Coupon":
+                    coupon = float(value) if value and value != "-" else None
+                elif label == "Maturity Date":
+                    maturity_date = value
+                elif label == "1-Year Change":
+                    one_year_change = float(value.replace('%', '').replace(',', '')) if value else None
 
-        # Última actualización
-        update_tag = soup.find('span', class_='text-xs text-secondary-text')
-        if update_tag:
-            update_text = update_tag.text.strip()
-            try:
-                last_update = datetime.strptime(update_text, "%b %d, %Y %H:%M UTC")
-            except Exception:
-                last_update = None
-        else:
-            last_update = None
-
-        # Moneda (currency) de forma correcta
+        # Moneda (currency)
         currency_tag = soup.find('div', attrs={"data-test": "currency-in-label"})
         if currency_tag:
             span_currency = currency_tag.find('span')
             currency = span_currency.text.strip() if span_currency else "Currency no encontrada"
-        else:
-            currency = "Currency no encontrada"
 
-        # Guardarlo en base de datos
+        # Guardar en la base de datos
         session = Session()
         new_bond = Bond(
             country=country,
             name=name,
-            yield_pct=yield_pct,
-            daily_change=daily_change,
-            daily_change_pct=daily_change_pct,
-            last_update=last_update,
-            currency=currency
+            currency=currency,
+            prev_close=prev_close,
+            day_range=day_range,
+            year_range=year_range,
+            price=price,
+            price_range=price_range,
+            coupon=coupon,
+            maturity_date=maturity_date,
+            one_year_change=one_year_change,
+            last_update=datetime.now()
         )
         session.add(new_bond)
         session.commit()
+        time.sleep(1)  # Esperar 1 segundo entre peticiones para evitar ser bloqueado
         session.close()
 
         return {
             "country": country,
             "name": name,
-            "yield_pct": yield_pct,
-            "daily_change": daily_change,
-            "daily_change_pct": daily_change_pct,
-            "last_update": last_update,
-            "currency": currency
+            "currency": currency,
+            "prev_close": prev_close,
+            "day_range": day_range,
+            "year_range": year_range,
+            "price": price,
+            "price_range": price_range,
+            "coupon": coupon,
+            "maturity_date": maturity_date,
+            "one_year_change": one_year_change
         }
 
     except Exception as e:
         return {"error": f"Error extrayendo datos: {str(e)}"}
 
-
 def scrape_or_get_bond_info(url, country):
     today = datetime.today().date()
 
     # Scrapeamos para conocer el nombre exacto del bono
-    scraped_data = scrape_bond_info(url, country)
-    name = scraped_data.get("name")
-
+    name = extract_bond_name_from_url(url)
     if not name:
         return {"error": "No se pudo extraer el nombre del bono"}
 
@@ -181,15 +201,20 @@ def scrape_or_get_bond_info(url, country):
             "id": existing.id,
             "country": existing.country,
             "name": existing.name,
-            "yield_pct": existing.yield_pct,
-            "daily_change": existing.daily_change,
-            "daily_change_pct": existing.daily_change_pct,
-            "last_update": existing.last_update,
-            "currency": existing.currency
+            "currency": existing.currency,
+            "prev_close": existing.prev_close,
+            "day_range": existing.day_range,
+            "year_range": existing.year_range,
+            "price": existing.price,
+            "price_range": existing.price_range,
+            "coupon": existing.coupon,
+            "maturity_date": existing.maturity_date,
+            "one_year_change": existing.one_year_change
         }
 
     session.close()
     # Si no existe o está desactualizado, devolvemos el scrapeo (que ya viene de bond_scraper.py y guarda en DB)
+    scraped_data = scrape_bond_info(url, country)
     return scraped_data
 
 def get_bonds_info(country):

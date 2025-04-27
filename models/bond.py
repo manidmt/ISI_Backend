@@ -9,13 +9,18 @@ class Bond(Base):
     __tablename__ = 'bonds'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    country = Column(String)         # "Spain", "Germany", etc.
-    name = Column(String)           # "Spain 10-Year Bond Yield"
-    yield_pct = Column(Float)       # Rentabilidad actual (ej: 3.205)
-    daily_change = Column(Float)    # Variación absoluta (ej: +0.035)
-    daily_change_pct = Column(Float) # Variación porcentual (ej: +1.10)
-    last_update = Column(DateTime)  # Última hora de cotización
-    currency = Column(String)       # EUR, USD, etc.
+    country = Column(String)         
+    name = Column(String)          
+    prev_close = Column(Float)
+    day_range = Column(String) 
+    year_range = Column(String) 
+    price = Column(Float)
+    price_range = Column(String)  
+    coupon = Column(Float)  
+    maturity_date = Column(String)
+    one_year_change = Column(Float)   
+    currency = Column(String)      
+    last_update = Column(DateTime)
 
 engine = create_engine('sqlite:///stocks.db')
 Base.metadata.create_all(engine)
@@ -113,3 +118,51 @@ bonds_urls = {
         "https://www.investing.com/rates-bonds/australia-1-year-bond-yield"
     ]
 }
+
+
+
+
+
+import re
+def extract_bond_name_from_url(url):
+    try:
+        # 1. Cogemos solo la parte después de '/rates-bonds/'
+        path = url.split('/rates-bonds/')[-1]
+
+        # 2. Quitamos '-bond-yield' al final
+        path = path.replace('-bond-yield', '')
+
+        # 3. Separamos por guiones
+        parts = path.split('-')
+
+        # 4. El país puede tener varios guiones (ej: south-korea), unimos todo excepto los dos últimos
+        if len(parts) >= 2:
+            country_parts = parts[:-2]  # Todo menos los dos últimos
+            years_number = parts[-2]    # Por ejemplo "10"
+            year_word = parts[-1]        # "year"
+
+            # Formar país
+            country = ' '.join([p.capitalize() for p in country_parts])
+
+            # Asegurar que "Year" tenga Y mayúscula
+            year_part = f"{years_number}-Year"
+
+            name = f"{country} {year_part} Bond Yield"
+        else:
+            name = path.replace('-', ' ').title()
+
+        return name
+
+    except Exception as e:
+        print(f"Error extrayendo nombre del bono: {str(e)}")
+        return None
+
+
+# Ejemplo de uso:
+url1 = "https://www.investing.com/rates-bonds/spain-10-year-bond-yield"
+url2 = "https://www.investing.com/rates-bonds/germany-20-year-bond-yield"
+url3 = "https://www.investing.com/rates-bonds/france-5-year-bond-yield"
+
+print(extract_bond_name_from_url(url1))
+print(extract_bond_name_from_url(url2))
+print(extract_bond_name_from_url(url3))
