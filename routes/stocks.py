@@ -4,6 +4,7 @@ from datetime import datetime
 from services.alphavantage import get_stock_data
 from models.stock import Stock, Session
 from services.alphavantage import stock_to_dict
+from services.scraper import scrape_or_get_company_info
 
 stocks_bp = Blueprint('stocks', __name__)
 
@@ -36,3 +37,9 @@ def stock_history(symbol):
     rows = session.query(Stock).filter_by(symbol=symbol).order_by(Stock.date.asc()).all()
     session.close()
     return jsonify([stock_to_dict(row) for row in rows])
+
+
+@stocks_bp.route('/company/<symbol>', methods=['GET'])
+def company_info(symbol):
+    data = scrape_or_get_company_info(symbol.upper())
+    return jsonify(data)

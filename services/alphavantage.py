@@ -78,14 +78,14 @@ def get_stock_data(symbol):
     session.commit()
 
     # 3. Ahora que está almacenado, devolvemos el dato de hoy (si existe)
-    stock_today = session.query(Stock).filter_by(symbol=symbol, date=today).first()
+    latest = session.query(Stock).filter_by(symbol=symbol).order_by(Stock.date.desc()).first()
     session.close()
 
-    if stock_today:
-        print(f"Guardados {nuevos} registros nuevos. Devolviendo el dato de hoy.")
-        return stock_to_dict(stock_today)
+    if latest:
+        print(f"Guardados {nuevos} registros nuevos. Devolviendo el dato más reciente: {latest.date}")
+        return stock_to_dict(latest)
     else:
-        return {"error": f"No hay datos disponibles para hoy ({today}) aún"}
+        return {"error": f"No se pudo guardar ningún dato para {symbol}"}
 
 
 
@@ -123,5 +123,4 @@ def get_stock_data(symbol):
         "volume": last_data["5. volume"],
         "variation": f"{variation:.2f}%"
     }
-
 '''
