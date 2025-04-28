@@ -145,26 +145,16 @@ def scrape_bond_info(url, country):
             span_currency = currency_tag.find('span')
             currency = span_currency.text.strip() if span_currency else "Currency no encontrada"
 
-        # Guardar en la base de datos
-        session = Session()
-        new_bond = Bond(
-            country=country,
-            name=name,
-            currency=currency,
-            prev_close=prev_close,
-            day_range=day_range,
-            year_range=year_range,
-            price=price,
-            price_range=price_range,
-            coupon=coupon,
-            maturity_date=maturity_date,
-            one_year_change=one_year_change,
-            last_update=datetime.now()
-        )
-        session.add(new_bond)
-        session.commit()
-        time.sleep(1)  # Esperar 1 segundo entre peticiones para evitar ser bloqueado
-        session.close()
+        print(f"Datos del bono: {name}")
+        print(f"  - Currency: {currency}")
+        print(f"  - Prev. Close: {prev_close}")
+        print(f"  - Day's Range: {day_range}")
+        print(f"  - 52 wk Range: {year_range}")
+        print(f"  - Price: {price}")
+        print(f"  - Price Range: {price_range}")
+        print(f"  - Coupon: {coupon}")
+        print(f"  - Maturity Date: {maturity_date}")
+        print(f"  - 1-Year Change: {one_year_change}")
 
         return {
             "country": country,
@@ -198,7 +188,6 @@ def scrape_or_get_bond_info(url, country):
     if existing and existing.last_update and existing.last_update.date() == today:
         session.close()
         return {
-            "id": existing.id,
             "country": existing.country,
             "name": existing.name,
             "currency": existing.currency,
@@ -212,9 +201,26 @@ def scrape_or_get_bond_info(url, country):
             "one_year_change": existing.one_year_change
         }
 
-    session.close()
-    # Si no existe o está desactualizado, devolvemos el scrapeo (que ya viene de bond_scraper.py y guarda en DB)
     scraped_data = scrape_bond_info(url, country)
+    new_bond = Bond(
+        country=country,
+        name=scraped_data["name"],
+        currency=scraped_data["currency"],
+        prev_close=scraped_data["prev_close"],
+        day_range=scraped_data["day_range"],
+        year_range=scraped_data["year_range"],
+        price=scraped_data["price"],
+        price_range=scraped_data["price_range"],
+        coupon=scraped_data["coupon"],
+        maturity_date=scraped_data["maturity_date"],
+        one_year_change=scraped_data["one_year_change"],
+        last_update=datetime.now()
+    )
+    session.add(new_bond)
+    session.commit()
+    session.close()
+    time.sleep(5)
+    # Si no existe o está desactualizado, devolvemos el scrapeo (que ya viene de bond_scraper.py y guarda en DB)
     return scraped_data
 
 def get_bonds_info(country):
@@ -222,12 +228,13 @@ def get_bonds_info(country):
     urls = bonds_urls.get(country)
     if not urls:
         return {"error": "País no soportado"}
-
-    bond_data = []
+    
+    bonds_data = []
     for url in urls:
         data = scrape_or_get_bond_info(url, country)
-#        if "error" in data:
-#            return data
-        bond_data.append(data)
+        if "error" not in data:
+            bonds_data.append(data)
 
-    return bond_data
+    return bonds_data
+
+

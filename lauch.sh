@@ -1,3 +1,3 @@
-source venv/bin/activate
+source ./venv/bin/activate
 code .
-python app.py
+python ./app.py
