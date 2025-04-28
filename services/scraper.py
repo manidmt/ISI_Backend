@@ -122,22 +122,55 @@ def scrape_bond_info(url, country):
                 label = label_tag.text.strip()
                 value = value_tag.text.strip()
 
+
+                if label in ["Price", "Price Range", "1-Year Change"]:
+                    spans = value_tag.find_all('span')
+
+                    if label == "Price":
+                        # Sacar el primer número
+                        nums = [span.text.strip() for span in spans if span.text.strip() and span.text.strip() != '-']
+                        if nums:
+                            try:
+                                price = float(nums[0].replace(',', ''))
+                            except:
+                                price = None
+
+                    elif label == "Price Range":
+                        nums = [span.text.strip() for span in spans if span.text.strip() and span.text.strip() != '-']
+                        if len(nums) >= 2:
+                            price_range = f"{nums[0]}-{nums[1]}"
+                        else:
+                            price_range = "-"
+
+                    elif label == "1-Year Change":
+                        # Buscamos directamente en value_tag el texto combinado
+                        main_span = value_tag.find('span', class_='key-info_dd-numeric__ZQFIs')
+                        if main_span:
+                            child_spans = main_span.find_all('span')
+                            if len(child_spans) >= 2:
+                                try:
+                                    number_text = child_spans[1].text.strip()  # El número está en el segundo span
+                                    one_year_change = float(number_text.replace(',', ''))
+                                except:
+                                    one_year_change = None
+
+
                 if label == "Prev. Close":
                     prev_close = float(value) if value else None
                 elif label == "Day's Range":
                     day_range = value
                 elif label == "52 wk Range":
                     year_range = value
-                elif label == "Price":
-                    price = float(value) if value and value != "-" else None
-                elif label == "Price Range":
-                    price_range = value
+                #elif label == "Price":
+                #    price = float(value) if value and value != "-" else None
+                #elif label == "Price Range":
+                #    price_range = value
                 elif label == "Coupon":
                     coupon = float(value) if value and value != "-" else None
                 elif label == "Maturity Date":
                     maturity_date = value
-                elif label == "1-Year Change":
-                    one_year_change = float(value.replace('%', '').replace(',', '')) if value else None
+                #elif label == "1-Year Change":
+                #    one_year_change = float(value.replace('%', '').replace(',', '')) if value else None
 
         # Moneda (currency)
         currency_tag = soup.find('div', attrs={"data-test": "currency-in-label"})
