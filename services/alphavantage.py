@@ -44,6 +44,8 @@ def get_stock_data(symbol):
     response = requests.get(BASE_URL, params=params)
     data = response.json()
 
+    print(data)
+
     if "Time Series (Daily)" not in data:
         session.close()
         return {"error": f"No se pudo obtener {symbol}"}

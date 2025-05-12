@@ -46,7 +46,7 @@ bonds_urls = {
         "https://www.investing.com/rates-bonds/germany-1-year-bond-yield"
     ],
 
-    "USA": [
+    "U.S.": [
         "https://www.investing.com/rates-bonds/u.s.-30-year-bond-yield",
         "https://www.investing.com/rates-bonds/u.s.-20-year-bond-yield",
         "https://www.investing.com/rates-bonds/u.s.-10-year-bond-yield",
