@@ -235,6 +235,14 @@ def scrape_or_get_bond_info(url, country):
         }
 
     scraped_data = scrape_bond_info(url, country)
+    scraped_data = scrape_bond_info(url, country)
+
+    # ⚠️ Verificamos que scrape_bond_info ha devuelto un diccionario válido
+    if "error" in scraped_data:
+        session.close()
+        return scraped_data  # devuelves directamente el error al frontend
+
+    # Si no hay error, continuamos normalmente
     new_bond = Bond(
         country=country,
         name=scraped_data["name"],
@@ -249,6 +257,7 @@ def scrape_or_get_bond_info(url, country):
         one_year_change=scraped_data["one_year_change"],
         last_update=datetime.now()
     )
+
     session.add(new_bond)
     session.commit()
     session.close()

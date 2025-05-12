@@ -24,27 +24,45 @@ def stock_to_dict(stock):
     }
 
 
+from datetime import timedelta
+
 def get_stock_data(symbol):
     session = Session()
     today = datetime.today().date()
 
-    # 1. ¿Tengo los datos de hoy en la base de datos?
-    stock_today = session.query(Stock).filter_by(symbol=symbol, date=today).first()
-    if stock_today:
+    # Buscar datos en los últimos 4 días
+    recent_stock = session.query(Stock).filter(
+        Stock.symbol == symbol,
+        Stock.date >= today - timedelta(days=4)
+    ).order_by(Stock.date.desc()).first()
+
+    if recent_stock:
         session.close()
-        return stock_to_dict(stock_today)
+        print(f"Datos encontrados en base de datos para {symbol} del día {recent_stock.date}")
+        return stock_to_dict(recent_stock)
 
-    # 2. Si no los tengo, llamar a la API (una sola vez)
-    print(f"No hay datos de hoy en base de datos. Consultando Alpha Vantage para {symbol}...")
-    params = {
-        "function": "TIME_SERIES_DAILY",
-        "symbol": symbol,
-        "apikey": API_KEY
-    }
-    response = requests.get(BASE_URL, params=params)
-    data = response.json()
+    # Si no hay datos recientes, llamar a la API
+    print(f"No hay datos recientes en base de datos. Consultando API para {symbol}...")
 
-    print(data)
+    apikeys = [os.getenv("ALPHA_VANTAGE_API_KEY"), os.getenv("ALPHA_VANTAGE_API_KEY_2")]
+    data = None
+
+    for key in apikeys:
+        print(f"Intentando con API key: {key}")
+        params = {
+            "function": "TIME_SERIES_DAILY",
+            "symbol": symbol,
+            "apikey": key
+        }
+        response = requests.get(BASE_URL, params=params)
+        data = response.json()
+
+        if "Time Series (Daily)" in data:
+            break
+        elif "Note" in data or "Error Message" in data:
+            print("Error o límite alcanzado con esta clave:")
+            print(data.get("Note") or data.get("Error Message"))
+            continue
 
     if "Time Series (Daily)" not in data:
         session.close()
@@ -79,7 +97,7 @@ def get_stock_data(symbol):
 
     session.commit()
 
-    # 3. Ahora que está almacenado, devolvemos el dato de hoy (si existe)
+    # Buscar el más reciente después del guardado
     latest = session.query(Stock).filter_by(symbol=symbol).order_by(Stock.date.desc()).first()
     session.close()
 
@@ -88,6 +106,7 @@ def get_stock_data(symbol):
         return stock_to_dict(latest)
     else:
         return {"error": f"No se pudo guardar ningún dato para {symbol}"}
+
 
 
 
